@@ -4,4 +4,3 @@ python-dotenv
 sentence-transformers
 pinecone
 gunicorn
-gunicorn
