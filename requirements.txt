@@ -1,5 +1,7 @@
 fastapi
 uvicorn
 python-dotenv
-pinecone
 sentence-transformers
+pinecone
+gunicorn
+gunicorn
