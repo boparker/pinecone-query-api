@@ -1,25 +1,22 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import os
-from pinecone import Pinecone, ServerlessSpec
+from pinecone import Pinecone
 
 app = FastAPI()
 
 pinecone_api_key = os.environ.get("PINECONE_API_KEY")
-pinecone_env = os.environ.get("PINECONE_ENVIRONMENT")
-pinecone_index = os.environ.get("PINECONE_INDEX")
+pinecone_index = os.environ.get("INDEX_NAME")
 
-if not pinecone_api_key or not pinecone_env or not pinecone_index:
+if not pinecone_api_key or not pinecone_index:
     raise RuntimeError("Missing required environment variables.")
 
 pc = Pinecone(api_key=pinecone_api_key)
 index = pc.Index(pinecone_index)
 
-
 class QueryRequest(BaseModel):
     query: list[float]
     top_k: int = 5
-
 
 @app.post("/query")
 def query_index(request: QueryRequest):
@@ -31,4 +28,4 @@ def query_index(request: QueryRequest):
         )
         return response
     except Exception as e:
-        raise HTTPException(status_code=500, detail=_
+        raise HTTPException(status_code=500, detail=str(e))
