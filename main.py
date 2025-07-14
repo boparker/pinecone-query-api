@@ -47,7 +47,7 @@ def query_index(req: QueryRequest):
         top_k=req.top_k,
         include_metadata=True
     )
-    return res
+    return res.to_dict()
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
