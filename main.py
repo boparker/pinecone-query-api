@@ -1,47 +1,43 @@
 import os
-import warnings
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from dotenv import load_dotenv
-from sentence_transformers import SentenceTransformer
-from pinecone import Pinecone
+import pinecone
+import uvicorn
 
-warnings.filterwarnings("ignore", message="urllib3 v2 only supports OpenSSL")
-load_dotenv()
-
-app = FastAPI()
-
+# Load environment variables safely
 pinecone_api_key = os.getenv("PINECONE_API_KEY")
+pinecone_env = os.getenv("PINECONE_ENV")
 index_name = os.getenv("INDEX_NAME")
 
-pc = Pinecone(api_key=pinecone_api_key)
-index = pc.Index(index_name)
-model = SentenceTransformer("intfloat/multilingual-e5-large")
+# Fail fast if any env var is missing
+if not all([pinecone_api_key, pinecone_env, index_name]):
+    raise RuntimeError("❌ Missing Pinecone env vars. Set PINECONE_API_KEY, PINECONE_ENV, and INDEX_NAME.")
 
+# Init Pinecone
+pinecone.init(api_key=pinecone_api_key, environment=pinecone_env)
+index = pinecone.Index(index_name)
+
+# Setup FastAPI
+app = FastAPI()
+
+# Request model
 class QueryRequest(BaseModel):
-    query: str
+    query: list  # Must be a vector list (e.g. [0.1, 0.2, 0.3])
     top_k: int = 5
 
-@app.post("/query")
-async def query_index(req: QueryRequest):
-    query_embedding = model.encode(req.query.strip(), normalize_embeddings=True).tolist()
-    all_results = []
-    
-    # Search across all namespaces
-    namespaces = pc.describe_index(index_name).namespaces
-    for ns in namespaces:
-        response = index.query(
-            vector=query_embedding,
-            top_k=req.top_k,
-            include_metadata=True,
-            namespace=ns
-        )
-        for match in response.matches:
-            all_results.append({
-                "namespace": ns,
-                "score": match.score,
-                "text": match.metadata.get("text", "No text found")
-            })
+@app.get("/")
+def root():
+    return {"message": "✅ Pinecone Query API is live."}
 
-    sorted_results = sorted(all_results, key=lambda x: x["score"], reverse=True)
-    return {"query": req.query, "results": sorted_results}
+@app.post("/query")
+def query_index(req: QueryRequest):
+    try:
+        res = index.query(vector=req.query, top_k=req.top_k, include_metadata=True)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
+
+# Required for Railway or Render — binds to $PORT
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
