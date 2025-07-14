@@ -1,46 +1,34 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from dotenv import load_dotenv
 import os
-import pinecone
-import uvicorn
+from pinecone import Pinecone, ServerlessSpec
 
-# Load environment variables
-load_dotenv()
-
-# Initialize Pinecone
-pinecone.init(
-    api_key=os.getenv("PINECONE_API_KEY"),
-    environment=os.getenv("PINECONE_ENVIRONMENT")
-)
-
-# Get index name from environment variable
-index_name = os.getenv("PINECONE_INDEX_NAME")
-index = pinecone.Index(index_name)
-
-# Define request model
-class QueryRequest(BaseModel):
-    query: list
-    top_k: int = 5
-    namespace: str = ""  # ✅ added namespace support
-
-# Initialize FastAPI app
 app = FastAPI()
 
-# Define query endpoint
-@app.post("/query")
-def query_index(req: QueryRequest):
-    try:
-        res = index.query(
-            vector=req.query,
-            top_k=req.top_k,
-            include_metadata=True,
-            namespace=req.namespace  # ✅ now using passed-in namespace
-        )
-        return res
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+pinecone_api_key = os.environ.get("PINECONE_API_KEY")
+pinecone_env = os.environ.get("PINECONE_ENVIRONMENT")
+pinecone_index = os.environ.get("PINECONE_INDEX")
 
-# Entry point
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000)
+if not pinecone_api_key or not pinecone_env or not pinecone_index:
+    raise RuntimeError("Missing required environment variables.")
+
+pc = Pinecone(api_key=pinecone_api_key)
+index = pc.Index(pinecone_index)
+
+
+class QueryRequest(BaseModel):
+    query: list[float]
+    top_k: int = 5
+
+
+@app.post("/query")
+def query_index(request: QueryRequest):
+    try:
+        response = index.query(
+            vector=request.query,
+            top_k=request.top_k,
+            include_metadata=True
+        )
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=_
