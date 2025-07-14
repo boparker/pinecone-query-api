@@ -1,23 +1,22 @@
 # Pinecone Query API
 
-A FastAPI service to query a Pinecone vector index. Deployable to Railway.
+A FastAPI service to query a Pinecone index. Deployable on Railway.
 
-## 🚀 Deploy to Railway
+## Deploy on Railway
 
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template)
 
-## 🧪 Example POST to /query
-
-```json
-{
-  "query": [0.1, 0.2, 0.3],
-  "top_k": 5
-}
-```
-
-## 📦 Env Vars Required
+## Environment Variables
 
 - `PINECONE_API_KEY`
 - `PINECONE_ENV`
 - `INDEX_NAME`
-- `PORT` (injected by Railway)
+- `PORT` (automatically injected by Railway)
+
+## Example `/query` Payload
+
+```json
+{
+  "query": [0.1, 0.2, 0.3],
+  "top_k": 3
+}
