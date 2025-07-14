@@ -6,12 +6,13 @@ from pinecone import Pinecone
 app = FastAPI()
 
 pinecone_api_key = os.environ.get("PINECONE_API_KEY")
+pinecone_env = os.environ.get("PINECONE_ENV")
 pinecone_index = os.environ.get("INDEX_NAME")
 
-if not pinecone_api_key or not pinecone_index:
+if not pinecone_api_key or not pinecone_env or not pinecone_index:
     raise RuntimeError("Missing required environment variables.")
 
-pc = Pinecone(api_key=pinecone_api_key)
+pc = Pinecone(api_key=pinecone_api_key, environment=pinecone_env)
 index = pc.Index(pinecone_index)
 
 class QueryRequest(BaseModel):
