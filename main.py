@@ -1,54 +1,46 @@
-import os
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from pinecone import Pinecone
+from dotenv import load_dotenv
+import os
+import pinecone
 import uvicorn
-import traceback
 
-# Load env vars
-pinecone_api_key = os.getenv("PINECONE_API_KEY")
-index_name = os.getenv("INDEX_NAME")
+# Load environment variables
+load_dotenv()
 
-if not all([pinecone_api_key, index_name]):
-    raise RuntimeError("Missing Pinecone environment variables.")
+# Initialize Pinecone
+pinecone.init(
+    api_key=os.getenv("PINECONE_API_KEY"),
+    environment=os.getenv("PINECONE_ENVIRONMENT")
+)
 
-# Pinecone client
-pc = Pinecone(api_key=pinecone_api_key)
-index = pc.Index(index_name)
+# Get index name from environment variable
+index_name = os.getenv("PINECONE_INDEX_NAME")
+index = pinecone.Index(index_name)
 
-# FastAPI app
-app = FastAPI()
-
-# Request model
+# Define request model
 class QueryRequest(BaseModel):
     query: list
     top_k: int = 5
+    namespace: str = ""  # ✅ added namespace support
 
-# Catch all exceptions globally and show trace
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": str(exc),
-            "traceback": traceback.format_exc()
-        }
-    )
+# Initialize FastAPI app
+app = FastAPI()
 
-@app.get("/")
-def root():
-    return {"message": "✅ Pinecone Query API is live."}
-
+# Define query endpoint
 @app.post("/query")
 def query_index(req: QueryRequest):
-    res = index.query(
-        vector=req.query,
-        top_k=req.top_k,
-        include_metadata=True
-    )
-    return res.to_dict()
+    try:
+        res = index.query(
+            vector=req.query,
+            top_k=req.top_k,
+            include_metadata=True,
+            namespace=req.namespace  # ✅ now using passed-in namespace
+        )
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
+# Entry point
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000)
