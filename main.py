@@ -1,28 +1,40 @@
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from pinecone import Pinecone
 import uvicorn
 import traceback
 
-# Load required environment variables
+# Load env vars
 pinecone_api_key = os.getenv("PINECONE_API_KEY")
 index_name = os.getenv("INDEX_NAME")
 
 if not all([pinecone_api_key, index_name]):
     raise RuntimeError("Missing Pinecone environment variables.")
 
-# Initialize Pinecone client
+# Pinecone client
 pc = Pinecone(api_key=pinecone_api_key)
 index = pc.Index(index_name)
 
-# Initialize FastAPI app
+# FastAPI app
 app = FastAPI()
 
-# Pydantic request model
+# Request model
 class QueryRequest(BaseModel):
-    query: list  # Should be 1024-dim for your use case
+    query: list
     top_k: int = 5
+
+# Catch all exceptions globally and show trace
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": str(exc),
+            "traceback": traceback.format_exc()
+        }
+    )
 
 @app.get("/")
 def root():
@@ -30,10 +42,13 @@ def root():
 
 @app.post("/query")
 def query_index(req: QueryRequest):
-    try:
-        # Attempt Pinecone query
-        res = index.query(vector=req.query, top_k=req.top_k, include_metadata=True)
-        return res
-    except Exception as e:
-        # Return full traceback for debugging
-        tb = tr
+    res = index.query(
+        vector=req.query,
+        top_k=req.top_k,
+        include_metadata=True
+    )
+    return res
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
